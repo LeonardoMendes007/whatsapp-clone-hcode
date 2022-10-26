@@ -1,11 +1,31 @@
-class WhatsAppController{
+import {Format} from './../util/Format';
+import {Firebase} from './../util/Firebase';
+import {CameraController} from './CameraController';
+import {MicrophoneController} from './MicrophoneController';
+import {DocumentPreviewController} from './DocumentPreviewController';
+
+export class WhatsAppController{
 
     constructor() {
-        console.log("oi");
-
+        console.log("Whatsapp 100%");
+        this._firebase = new Firebase();
+        this.initAuth(); 
         this.elementsPrototype();
         this.loadElements();
         this.initEvents();
+        
+    }
+
+    initAuth(){
+
+        this._firebase.initAuth()
+        .then((response, token)=>{
+            console.log('response',response,token);
+        })
+        .catch(err=>{
+            console.error(err);
+        });
+
     }
 
     loadElements(){
@@ -190,7 +210,7 @@ class WhatsAppController{
             this.closeAllMainPanel();
             this.el.panelCamera.addClass('open');
             this.el.panelCamera.css({
-                'height':'calc(100% - 120px)'
+                'height':'calc(110% - 01px)'
             });
 
             this._camera = new CameraController(this.el.videoCamera);
@@ -200,10 +220,30 @@ class WhatsAppController{
         this.el.btnClosePanelCamera.on('click', e=>{
             this.el.panelCamera.removeClass('open');
             this.el.panelMessagesContainer.show();
+            this._camera.stop();
         })
 
         this.el.btnTakePicture.on('click', e=>{
-            console.log('take pic')
+            let dataUrl = this._camera.takePicture();
+
+            this.el.pictureCamera.src = dataUrl;
+            this.el.pictureCamera.show();
+            this.el.videoCamera.hide();
+            this.el.btnReshootPanelCamera.show();
+            this.el.containerTakePicture.hide();
+            this.el.containerSendPicture.show();
+        })
+
+        this.el.btnReshootPanelCamera.on('click', e=>{
+            this.el.pictureCamera.hide();
+            this.el.videoCamera.show();
+            this.el.btnReshootPanelCamera.hide();
+            this.el.containerTakePicture.show();
+            this.el.containerSendPicture.hide();
+        })
+
+        this.el.btnSendPicture.on('click', e=>{
+            console.log(this.el.pictureCamera.src);
         })
 
         this.el.btnAttachDocument.on('click', e=>{
@@ -211,9 +251,71 @@ class WhatsAppController{
             this.closeAllMainPanel();
             this.el.panelDocumentPreview.addClass('open');
             this.el.panelDocumentPreview.css({
-                'height':'calc(100% - 120px)'
+                'height':'calc(100% - 01px)'
             });
+            this.el.inputDocument.click();
 
+        })
+        
+        this.el.inputDocument.on('change', e=>{
+
+            if(this.el.inputDocument.files.length){
+
+                this.el.panelCamera.css({
+                    'height':'1%'
+                });
+
+                let file = this.el.inputDocument.files[0];
+
+                this._documentPreviewController = new DocumentPreviewController(file);
+
+                this._documentPreviewController.getPreviewData().then(result => {
+
+                    this.el.imgPanelDocumentPreview.src = result.src;
+                    this.el.infoPanelDocumentPreview.innerHTML = result.info;
+                    this.el.imagePanelDocumentPreview.show();
+                    this.el.filePanelDocumentPreview.hide();
+
+                    this.el.panelCamera.css({
+                        'height':'calc(90% - 01px)'
+                    });
+
+                }).catch(err=>{
+
+                    this.el.panelCamera.css({
+                        'height':'calc(90% - 01px)'
+                    });
+
+                    console.log(file.type);
+
+                    switch (file .type){
+                        case 'application/vnd.ms-excel':
+                        case 'application/vnd.openxmlformats-officedocument.sprendsheetml.sheet':
+                            this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-xls';
+                        break;
+
+                        case 'application/vnd.ms-powerpoint':
+                        case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+                            this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-ppt';
+                        break;
+
+                        case 'application/msword':
+                        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                            this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-doc';
+                        break;
+
+                        default:
+                            this.el.iconPanelDocumentPreview.className = 'jcxhw icon-doc-generic';
+                            break;
+                    }
+                    
+                    this.el.filenamePanelDocumentPreview.innerHTML = file.name;
+                    this.el.imagePanelDocumentPreview.hide();
+                    this.el.filePanelDocumentPreview.show();
+
+                })
+
+            }
         })
 
         this.el.btnClosePanelDocumentPreview.on('click', e=>{
@@ -242,18 +344,29 @@ class WhatsAppController{
             this.el.btnSendMicrophone.hide();
             this.el.recordMicrophone.show();
 
-            this.startRecordMicrophoneTime();
+            this._microphoneController = new MicrophoneController();
+        
+            this._microphoneController.on('ready', audio=>{
 
+                this._microphoneController.startRecorder();
+
+            });
+
+            this._microphoneController.on('recordtimer', timer => {
+                this.el.recordMicrophoneTimer.innerHTML = Format.toTime(timer);
+            })
         })
 
         this.el.btnCancelMicrophone.on('click', e=> {
 
+            this._microphoneController.stopRecorder();
             this.closeRecordMicrophone();
 
         })
 
         this.el.btnFinishMicrophone.on('click', e=> {
 
+            this._microphoneController.stopRecorder();
             this.closeRecordMicrophone();
 
         })
@@ -327,22 +440,10 @@ class WhatsAppController{
 
     }
 
-    startRecordMicrophoneTime(){
-        let start = Date.now();
-
-        this._recordMicrophoneInterval = setInterval(()=>{
-
-            Date.now() - start 
-            this.el.recordMicrophoneTimer.innerHTML = Format.toTime((Date.now() - start));
-
-        },1000)
-    }
-
     closeRecordMicrophone(){
 
         this.el.btnSendMicrophone.show();
         this.el.recordMicrophone.hide();
-        clearInterval(this._recordMicrophoneInterval);
     }
 
     closeAllMainPanel(){
