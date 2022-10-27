@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 export class Firebase {
@@ -34,7 +35,7 @@ export class Firebase {
     }
 
     static db(){
-        return  this._firebase.firestore();
+        return getFirestore(this._firebase);
     }
 
     static hd(){
@@ -52,7 +53,10 @@ export class Firebase {
                 const token = credential.accessToken;
                 const user = result.user;
 
-                s(user, token);
+                s({
+                    user: user, 
+                    token: token
+                });
 
             })
             .catch(err=>{
