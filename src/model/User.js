@@ -1,5 +1,5 @@
 import { Firebase } from "../util/Firebase";
-import { getDoc, setDoc, doc, collection, onSnapshot } from "firebase/firestore";
+import { getDoc, getAll, setDoc, doc, collection, onSnapshot, getDocs } from "firebase/firestore";
 import { Model } from "./Model";
 
 export class User extends Model {
@@ -10,14 +10,17 @@ export class User extends Model {
         if(id) this.getById(id);
     }
 
-    get name(){ return this._data.name;}
-    set name(value){ return this._data.name = value;}
+    get name() { return this._data.name; }
+    set name(value) { this._data.name = value; }
 
-    get email(){ return this._data.email;}
-    set email(value){ return this._data.email = value;}
+    get email() { return this._data.email; }
+    set email(value) { this._data.email = value; }
 
-    get photo(){ return this._data.photo;}
-    set photo(value){ return this._data.photo = value;}
+    get photo() { return this._data.photo; }
+    set photo(value) { this._data.photo = value; }
+
+    get chatId() { return this._data.chatId; }
+    set chatId(value) { this._data.chatId = value; }
 
     getById(id){
 
@@ -43,6 +46,11 @@ export class User extends Model {
 
     }
 
+    static getContactsRef(id){
+        return collection(
+            doc(User.getRef(), id),'contacts');
+    }
+
     static findByEmail(email){
 
         return doc(this.getRef(), email);
@@ -51,11 +59,33 @@ export class User extends Model {
     addContact(contact){
         return setDoc(
             doc(
-                collection(
-                    doc(User.getRef(), this.email),'contacts'), 
+                User.getContactsRef(this.email), 
                     btoa(contact.email)), 
                     contact.toJSON()); 
 
         
+    }
+
+    getContacts(){
+        return new Promise((s,f)=>{
+
+            onSnapshot(User.getContactsRef(this.email), data => {
+                let contacts = [];
+                
+                data.forEach(doc =>{
+
+                    let data = doc.data();
+
+                    data.id = doc.id;
+
+                    contacts.push(data);   
+                    
+                });
+
+                this.trigger('contactschange', contacts);
+                s(data);
+            });
+            
+        })
     }
 }
